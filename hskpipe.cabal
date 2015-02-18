@@ -1,0 +1,66 @@
+name:                  hskpipe
+
+--                     +-+------- breaking API changes
+--                     | | +----- non-breaking API additions
+--                     | | | +--- code changes with no API change
+version:               0.1.0.0
+
+synopsis:              Shen core (K|) in Haskell
+
+description:           An implementation of the Shen core language (K|) in Haskell
+
+license:               GPL-3
+
+license-file:          LICENSE
+
+author:                Remy Goldschmidt
+
+homepage:              https://github.com/taktoa/hskpipe
+
+maintainer:            taktoa@gmail.com
+
+category:              Math
+
+build-type:            Simple
+
+cabal-version:         >=1.10
+
+test-suite Test-hskpipe
+  test-module:         Tests
+  other-modules:       Eval, Expr, PrettyPrint, Parse
+  type:                detailed-0.9
+  default-extensions:  BangPatterns,
+                       OverloadedStrings,
+                       OverloadedLists,
+                       TupleSections
+  build-depends:       base >=4.6 && <4.9,
+                       parsec >=3.1 && <3.2,
+                       text >=1.2 && <1.3,
+                       containers >=0.5 && <0.6,
+                       QuickCheck >=2.7 && <2.8,
+                       cabal-test-quickcheck >=0.1 && <0.2,
+                       Cabal >=1.18 && <1.19
+  hs-source-dirs:      src
+  ghc-options:         -Wall
+  default-language:    Haskell2010
+
+executable hskpipe
+  main-is:             Main.hs
+  default-extensions:  BangPatterns,
+                       OverloadedStrings,
+                       OverloadedLists,
+                       TupleSections
+  build-depends:       base >=4.6 && <4.9,
+                       parsec >=3.1 && <3.2,
+                       text >=1.2 && <1.3,
+                       containers >=0.5 && <0.6,
+                       haskeline >=0.7 && <0.8,
+                       hashable >=1.2 && <1.3,
+                       llvm-general-pure >=3.4 && <3.5
+  hs-source-dirs:      src
+  ghc-options:         -Wall
+  default-language:    Haskell2010
+  
+source-repository head
+  type:                git
+  location:            git://github.com/taktoa/hskpipe.git
