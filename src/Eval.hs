@@ -16,94 +16,93 @@
 
 module Eval where
 
-import qualified Data.IntMap.Strict as IM (insert, lookup)
-import qualified Data.Map.Strict    as M (insert, lookup)
-import           Data.Maybe         (fromMaybe)
-import           Expr
+-- import qualified Data.IntMap.Strict as IM (insert, lookup)
+-- import qualified Data.Map.Strict    as M (insert, lookup)
+-- import           Data.Maybe         (fromMaybe)
+-- import           Expr
 
-addVar :: EClosure -> Name -> Expr -> EClosure
-addVar (Clsr e (addr, s) ()) n v = Clsr e' s' ()
-  where
-    addr' = addr + 1
-    e' = M.insert n addr' e
-    s' = (addr', IM.insert addr' v s)
+-- addVar :: EClosure -> Name -> Expr -> EClosure
+-- addVar (Clsr e (addr, s) ()) n v = Clsr e' s' ()
+--   where
+--     addr' = addr + 1
+--     e' = M.insert n addr' e
+--     s' = (addr', IM.insert addr' v s)
 
-refVar :: EClosure -> Name -> Expr
-refVar (Clsr e (_, s) ()) n = fromMaybe (ERef n) $ M.lookup n e >>= flip IM.lookup s
+-- refVar :: EClosure -> Name -> Expr
+-- refVar (Clsr e (_, s) ()) n = fromMaybe (ERef n) $ M.lookup n e >>= flip IM.lookup s
 
-applyLam :: EClosure -> Name -> Expr -> Expr -> Closure
-applyLam c n r v = wrap c' r
-  where
-    c' = addVar c n v
+-- applyLam :: EClosure -> Name -> Expr -> Expr -> Closure
+-- applyLam c n r v = wrap c' r
+--   where
+--     c' = addVar c n v
 
-applyMu :: EClosure -> Name -> Expr -> Expr -> Closure
-applyMu c n r v = wrap c' (EApp r v)
-  where
-    c' = addVar c n (EMu n r)
+-- applyMu :: EClosure -> Name -> Expr -> Expr -> Closure
+-- applyMu c n r v = wrap c' (EApp r v)
+--   where
+--     c' = addVar c n (EMu n r)
 
-step' :: EClosure -> Expr -> Closure
---- Base cases for stepping arithmetic expressions
-step' c (ENeg (ERat i))            = wrap c $ ERat (-i)
-step' c (ERcp (ERat i))            = wrap c $ ERat (recip i)
-step' c (EAdd (ERat i1) (ERat i2)) = wrap c $ ERat (i1 + i2)
-step' c (EMul (ERat i1) (ERat i2)) = wrap c $ ERat (i1 * i2)
---- Base cases for booleans and conditionals
-step' c (ELE  (ERat i1) (ERat i2)) = wrap c $ ETF (i1 <= i2)
-step' c (EIf (ETF True) e1 _)      = wrap c $ e1
-step' c (EIf (ETF False) _ e2)     = wrap c $ e2
---- Base cases for variable lookup
-step' c (ERef n)                   = wrap c $ refVar c n
---- Lambda partial application
-step' c (ELam n r)                 = wrap c $ ELam n (fwrap c r)
---- Mu partial application
---step' c (EMu n r)                  = wrap c $ EMu n (fwrap c r)
---- Lambda application
-step' c (EApp (ELam n r) v)        = case v of
-                                      ERat{} -> applyLam c n r v
-                                      ETF{}  -> applyLam c n r v
-                                      ELam{} -> applyLam c n r v
-                                      EMu{}  -> applyLam c n r v
-                                      _      -> wrap c $ EApp (ELam n r) (fwrap c v)
---- Mu application
-step' c (EApp (EMu n r) v)         = case v of
-                                      ERat{} -> applyMu c n r v
-                                      ETF{}  -> applyMu c n r v
-                                      ELam{} -> applyMu c n r v
-                                      EMu{}  -> applyMu c n r v
-                                      _      -> wrap c $ EApp (EMu n r) (fwrap c v)
---- Strictness cases
-step' c (ENeg e)                   = wrap c $ ENeg (fwrap c e)
-step' c (ERcp e)                   = wrap c $ ERcp (fwrap c e)
-step' c (EAdd e1 e2)               = wrap c $ EAdd (fwrap c e1) (fwrap c e2)
-step' c (EMul e1 e2)               = wrap c $ EMul (fwrap c e1) (fwrap c e2)
-step' c (ELE e1 e2)                = wrap c $ ELE (fwrap c e1) (fwrap c e2)
-step' c (EIf b e1 e2)              = wrap c $ EIf (fwrap c b) e1 e2
-step' c (EApp a v)                 = wrap c $ EApp (fwrap c a) v
---- Don't reduce anything that cannot be reduced
-step' c e                          = wrap c $ e
+-- step' :: EClosure -> Expr -> Closure
+-- --- Base cases for stepping arithmetic expressions
+-- step' c (ENeg (ERat i))            = wrap c $ ERat (-i)
+-- step' c (ERcp (ERat i))            = wrap c $ ERat (recip i)
+-- step' c (EAdd (ERat i1) (ERat i2)) = wrap c $ ERat (i1 + i2)
+-- step' c (EMul (ERat i1) (ERat i2)) = wrap c $ ERat (i1 * i2)
+-- --- Base cases for booleans and conditionals
+-- step' c (ELE  (ERat i1) (ERat i2)) = wrap c $ ETF (i1 <= i2)
+-- step' c (EIf (ETF True) e1 _)      = wrap c $ e1
+-- step' c (EIf (ETF False) _ e2)     = wrap c $ e2
+-- --- Base cases for variable lookup
+-- step' c (ERef n)                   = wrap c $ refVar c n
+-- --- Lambda partial application
+-- step' c (ELam n r)                 = wrap c $ ELam n (fwrap c r)
+-- --- Mu partial application
+-- --step' c (EMu n r)                  = wrap c $ EMu n (fwrap c r)
+-- --- Lambda application
+-- step' c (EApp (ELam n r) v)        = case v of
+--                                       ERat{} -> applyLam c n r v
+--                                       ETF{}  -> applyLam c n r v
+--                                       ELam{} -> applyLam c n r v
+--                                       EMu{}  -> applyLam c n r v
+--                                       _      -> wrap c $ EApp (ELam n r) (fwrap c v)
+-- --- Mu application
+-- step' c (EApp (EMu n r) v)         = case v of
+--                                       ERat{} -> applyMu c n r v
+--                                       ETF{}  -> applyMu c n r v
+--                                       ELam{} -> applyMu c n r v
+--                                       EMu{}  -> applyMu c n r v
+--                                       _      -> wrap c $ EApp (EMu n r) (fwrap c v)
+-- --- Strictness cases
+-- step' c (ENeg e)                   = wrap c $ ENeg (fwrap c e)
+-- step' c (ERcp e)                   = wrap c $ ERcp (fwrap c e)
+-- step' c (EAdd e1 e2)               = wrap c $ EAdd (fwrap c e1) (fwrap c e2)
+-- step' c (EMul e1 e2)               = wrap c $ EMul (fwrap c e1) (fwrap c e2)
+-- step' c (ELE e1 e2)                = wrap c $ ELE (fwrap c e1) (fwrap c e2)
+-- step' c (EIf b e1 e2)              = wrap c $ EIf (fwrap c b) e1 e2
+-- step' c (EApp a v)                 = wrap c $ EApp (fwrap c a) v
+-- --- Don't reduce anything that cannot be reduced
+-- step' c e                          = wrap c $ e
 
-step :: Closure -> Closure
-step (Clsr e s v) = step' (Clsr e s ()) v
+-- step :: Closure -> Closure
+-- step (Clsr e s v) = step' (Clsr e s ()) v
 
-eval' :: Closure -> Closure
-eval' i
- | i == s      = s
- | otherwise   = eval' s
- where
-   s = step i
+-- eval' :: Closure -> Closure
+-- eval' i
+--  | i == s      = s
+--  | otherwise   = eval' s
+--  where
+--    s = step i
 
-force :: Closure -> Expr
-force = getExpr . eval'
+-- force :: Closure -> Expr
+-- force = getExpr . eval'
 
-wrap :: GClosure a -> Expr -> Closure
-wrap (Clsr e s _) = Clsr e s
+-- wrap :: GClosure a -> Expr -> Closure
+-- wrap (Clsr e s _) = Clsr e s
 
-fwrap :: GClosure a -> Expr -> Expr
-fwrap c = force . wrap c
+-- fwrap :: GClosure a -> Expr -> Expr
+-- fwrap c = force . wrap c
 
-getExpr :: Closure -> Expr
-getExpr (Clsr _ _ e) = e
+-- getExpr :: Closure -> Expr
+-- getExpr (Clsr _ _ e) = e
 
-eval :: Expr -> Expr
-eval = force . return
-
+-- eval :: Expr -> Expr
+-- eval = force . return

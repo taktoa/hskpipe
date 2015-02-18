@@ -77,3 +77,4 @@ language_extensions:
   - OverloadedStrings
   - OverloadedLists
   - BangPatterns
+  - GADTs
