@@ -30,9 +30,85 @@ signParse' = many $ choice [ char '+' *> return 1
 signParse :: Parser Int
 signParse = product <$> signParse'
 
+intParse :: Parser Int
+intParse = read <$> many1 digit
 
-exprParse :: Parser String
-exprParse = many1 letter
+fltParse :: Parser Double
+fltParse = read . ("0." ++) <$> many1 digit
+
+sintParse :: Parser Double
+sintParse = do
+  s <- signParse
+  i <- intParse
+  return $ fromIntegral (s * i)
+
+floatParse :: Parser Double
+floatParse = do
+  s <- fromIntegral <$> signParse
+  i <- fromIntegral <$> intParse
+  char '.'
+  f <- option 0 fltParse
+  return (s * (i + f))
+
+snotParse :: Parser Double
+snotParse = do
+  i <- try floatParse <|> sintParse
+  char 'e'
+  e <- sintParse
+  return (i * (10 ** e))
+
+isInt :: Double -> Bool
+isInt i = f == c
+  where
+    f = floor i :: Int
+    c = ceiling i :: Int
+
+numParse' :: Parser Double
+numParse' = snotParse <|> floatParse <|> sintParse
+
+numParse :: Parser Expr
+numParse = toENumber <$> (try snotParse <|> try floatParse <|> try sintParse)
+  where
+    toENumber i = if isInt i then EInt $ round i else EFloat i
+
+symParse :: Parser Expr
+symParse = ESymbol . pack <$> many1 letter
+
+boolParse :: Parser Expr
+boolParse = ETrue <$ trueParse <|> EFalse <$ falseParse
+  where
+    trueParse  = string "true"
+    falseParse = string "false"
+
+sexpParse :: Parser a -> Parser b -> Parser (a, [b])
+sexpParse p1 p2 = do
+  char '('
+  spaces
+  f <- p1
+  spaces1
+  as <- p2 `sepBy` spaces1
+  spaces
+  char ')'
+  return (f, as)
+  where
+    spaces1 = space >> spaces
+
+toExpr :: String -> [Expr] -> Expr
+toExpr "and" [i1, i2]          = EAnd i1 i2
+toExpr "or" [i1, i2]           = EOr i1 i2
+toExpr "+" [i1, i2]            = EAdd i1 i2
+toExpr "-" [i1, i2]            = ESub i1 i2
+toExpr "*" [i1, i2]            = EMul i1 i2
+toExpr "/" [i1, i2]            = EDiv i1 i2
+toExpr _ _                     = error "unrecognized function"
+
+exprParse :: Parser Expr
+exprParse = uncurry toExpr <$> sexpParse (many1 letter) argParse
+  where
+    argParse = choice [try boolParse, try symParse, try numParse, exprParse]
+
+
+
 
 -- import           Control.Applicative ((*>), (<*>))
 -- import           Data.Functor        ((<$), (<$>))

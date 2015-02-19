@@ -3,7 +3,7 @@ name:                  hskpipe
 --                     +-+------- breaking API changes
 --                     | | +----- non-breaking API additions
 --                     | | | +--- code changes with no API change
-version:               0.1.0.0
+version:               0.2.0.0
 
 synopsis:              Shen core (K|) in Haskell
 

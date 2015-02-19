@@ -16,7 +16,8 @@
 
 module Expr where
 
-import           Data.Text (Text)
+import           Data.Text        (Text, unpack)
+import qualified LLVM.General.AST as L
 
 data KSymbolT
 data KNumberT
@@ -43,6 +44,7 @@ type KEListT   = KExpr KListT
 type KETupleT  = KExpr KTupleT
 type KEClsrT   = KExpr KClsrT
 type KEContT   = KExpr KContT
+type KEInlineT = KExpr L.Module
 type KEStmtT   = KExpr ()
 
 data KExpr a where
@@ -50,7 +52,9 @@ data KExpr a where
   KSymbol :: Text      -> KESymbolT
   KString :: Text      -> KEStringT
   KInt    :: Int       -> KENumberT
-  KFloat  :: Float     -> KENumberT
+  KFloat  :: Double    -> KENumberT
+  KTrue   :: KEBoolT
+  KFalse  :: KEBoolT
   KNil    :: KEListT
 --- Control functions
   KIf     :: KEBoolT   -> KExpr a   -> KExpr a   -> KExpr a
@@ -74,22 +78,20 @@ data KExpr a where
   KHd     :: KEListT   -> KExpr a
   KTl     :: KEListT   -> KEListT
 --- Generic functions
-  KApp    :: KEFuncT   -> KEListT   -> KExpr a
+  KApp    :: KEFuncT   -> KETupleT  -> KExpr a
   KEval   :: KExpr a   -> KExpr a
-  KESeq   :: KEListT   -> KExpr a
+  KESeq   :: KETupleT  -> KExpr a
   KSet    :: KESymbolT -> KExpr a   -> KEStmtT
   KVal    :: KESymbolT -> KExpr a
-  KDefun  :: KESymbolT -> KEListT   -> KExpr a   -> KEStmtT
+  KDefun  :: KESymbolT -> KETupleT  -> KExpr a   -> KEStmtT
   KLam    :: KESymbolT -> KExpr a   -> KEFuncT
   KLet    :: KESymbolT -> KExpr a   -> KExpr a   -> KExpr a
-  KEq     :: KExpr a   -> KExpr a   -> KEBoolT
   KFreeze :: KExpr a   -> KEContT
   KType   :: KExpr a   -> KESymbolT -> KExpr a
 --- Vectors
   KVec    :: KEListT   -> KEVectorT
   KVPut   :: KExpr a   -> KENumberT -> KEVectorT -> KExpr a
   KVGet   :: KEVectorT -> KENumberT -> KExpr a
-  KVecp   :: KExpr a   -> KEBoolT
 --- Streams
   KSWrite :: KENumberT -> KEStreamT -> KENumberT
   KSRead  :: KEStreamT -> KENumberT
@@ -102,14 +104,131 @@ data KExpr a where
   KSub    :: KENumberT -> KENumberT -> KENumberT
   KMul    :: KENumberT -> KENumberT -> KENumberT
   KDiv    :: KENumberT -> KENumberT -> KENumberT
+--- Predicates
+  KEQ     :: KExpr a   -> KExpr a   -> KEBoolT
   KLT     :: KENumberT -> KENumberT -> KEBoolT
   KGT     :: KENumberT -> KENumberT -> KEBoolT
   KLE     :: KENumberT -> KENumberT -> KEBoolT
   KGE     :: KENumberT -> KENumberT -> KEBoolT
---- Predicates
+  KNump   :: KExpr a   -> KEBoolT
   KStrp   :: KExpr a   -> KEBoolT
   KConsp  :: KExpr a   -> KEBoolT
-  KNump   :: KExpr a   -> KEBoolT
+  KVecp   :: KExpr a   -> KEBoolT
+--- Other
+  KInline :: L.Module  -> KEInlineT
+
+--  KHd     :: KEListT   -> KExpr a
+--  KTl     :: KEListT   -> KEListT
+
+instance Show (KExpr a) where
+  show (KInt i)      = show i
+  show (KFloat f)    = show f
+  show (KSymbol s)   = unpack s
+  show (KString s)   = show s
+  show KNil          = "()"
+  show (KInline l)   = "(inline \"" ++ show l ++ "\")"
+--- Lists
+  show (KHd xs)      = "(hd "  ++ show xs ++ ")"
+  show (KTl xs)      = "(tl "  ++ show xs ++ ")"
+  show (KCons x xs)  = "(cons "  ++ show x  ++ " " ++ show xs ++ ")"
+--- Vectors
+  show (KVec xs)     = "(absvector " ++ show xs ++ ")"
+  show (KVPut e a v) = "(address-> " ++ show e ++ " " ++ show a ++ " " ++ show v ++ ")"
+  show (KVGet a v)   = "(<-address " ++ show a ++ " " ++ show v ++ ")"
+--- Streams
+  show (KSWrite i s) = "(write-byte " ++ show i ++ " " ++ show s ++ ")"
+  show (KSRead s)    = "(read-byte " ++ show s ++ ")"
+  show (KSOpen p)    = "(open " ++ show p ++ ")"
+  show (KSClose p)   = "(close " ++ show p ++ ")"
+--- Time
+  show (KTime s)     = "(get-time " ++ show s  ++ ")"
+--- Arithmetic
+  show (KAdd i1 i2)  = "(+ "    ++ show i1 ++ " " ++ show i2 ++ ")"
+  show (KSub i1 i2)  = "(- "    ++ show i1 ++ " " ++ show i2 ++ ")"
+  show (KMul i1 i2)  = "(* "    ++ show i1 ++ " " ++ show i2 ++ ")"
+  show (KDiv i1 i2)  = "(/ "    ++ show i1 ++ " " ++ show i2 ++ ")"
+--- Predicates
+  show (KEQ i1 i2)   = "(= "    ++ show i1 ++ " " ++ show i2 ++ ")"
+  show (KLT i1 i2)   = "(< "    ++ show i1 ++ " " ++ show i2 ++ ")"
+  show (KGT i1 i2)   = "(< "    ++ show i1 ++ " " ++ show i2 ++ ")"
+  show (KLE i1 i2)   = "(<= "   ++ show i1 ++ " " ++ show i2 ++ ")"
+  show (KGE i1 i2)   = "(>= "   ++ show i1 ++ " " ++ show i2 ++ ")"
+  show (KStrp a)     = "(string? "    ++ show a ++ ")"
+  show (KConsp a)    = "(cons? "      ++ show a ++ ")"
+  show (KNump a)     = "(number? "    ++ show a ++ ")"
+  show (KVecp a)     = "(absvector? " ++ show a ++ ")"
+
+data Expr =
+--- Primitives
+            ESymbol Text
+          | EString Text
+          | EInt    Int
+          | EFloat  Double
+          | ETrue
+          | EFalse
+          | ENil
+--- Control functions
+          | EIf     Expr Expr Expr
+          | EAnd    Expr Expr
+          | EOr     Expr Expr
+--- Symbol functions
+          | EIntern Expr
+--- String functions
+          | EPos    Expr Expr
+          | ETlstr  Expr
+          | ECn     Expr Expr
+          | EStr    Expr
+          | ENStr   Expr
+          | EStrN   Expr
+--- Errors
+          | ESErr   Expr
+          | EEtS    Expr
+          | ETrap   Expr Expr
+--- Lists
+          | ECons   Expr Expr
+          | EHd     Expr
+          | ETl     Expr
+--- Generic functions
+          | EApp    Expr Expr
+          | EEval   Expr
+          | EESeq   Expr
+          | ESet    Expr Expr
+          | EVal    Expr
+          | EDefun  Expr Expr Expr
+          | ELam    Expr Expr
+          | ELet    Expr Expr Expr
+          | EFreeze Expr
+          | EType   Expr Expr
+--- Vectors
+          | EVec    Expr
+          | EVPut   Expr Expr Expr
+          | EVGet   Expr Expr
+--- Streams
+          | ESWrite Expr Expr
+          | ESRead  Expr
+          | ESOpen  Expr
+          | ESClose Expr
+--- Time
+          | ETime   Expr
+--- Arithmetic
+          | EAdd    Expr Expr
+          | ESub    Expr Expr
+          | EMul    Expr Expr
+          | EDiv    Expr Expr
+--- Predicates
+          | EEQ     Expr Expr
+          | ELT     Expr Expr
+          | EGT     Expr Expr
+          | ELE     Expr Expr
+          | EGE     Expr Expr
+          | ENump   Expr
+          | EStrp   Expr
+          | EConsp  Expr
+          | EVecp   Expr
+--- Other
+          | EInline L.Module
+            deriving (Show)
+
 
 -- import           Control.Applicative (Applicative (..))
 -- import           Control.Monad       (ap, liftM)
